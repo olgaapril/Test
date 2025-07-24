@@ -12,10 +12,15 @@ from telegram.ext import (
     CallbackContext
 )
 
-# Загрузка токена из переменных окружения
+# Загрузка токена и URL из переменных окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+REPLIT_URL = os.getenv("REPLIT_URL")
+
+# Резервное значение, если переменные окружения не заданы
 if not BOT_TOKEN:
-    raise Exception("❌ BOT_TOKEN не задан. Установи переменную окружения!")
+    BOT_TOKEN = "8446903855:AAGJiyssk62cQFtV6zGZ6cRYoNfUhVJXZuI"
+if not REPLIT_URL:
+    REPLIT_URL = "https://6d40ee08-bff3-4696-8f5a-1c915a35fd6d-00-1e91i4nybwh9i.riker.replit.dev/"
 
 PROGRESS_FILE = "progress.json"
 
@@ -28,30 +33,26 @@ messages = [
     "6️⃣ Шаг 6: Заверши этап и подготовь отчет."
 ]
 
-# Flask-сервер для проверки статуса
+# Flask-сервер для UptimeRobot
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "✅ Бот работает и жив!"
 
-# (Необязательно) Пинг самого себя
+# Фоновый автопинг
 def keep_alive():
-    render_url = os.getenv("RENDER_EXTERNAL_URL")  # Автоматическая переменная Render
-    if not render_url:
-        print("⚠️ Переменная RENDER_EXTERNAL_URL не задана. Пропускаем автопинг.")
-        return
-
     def ping():
         while True:
             try:
                 print("⏱️ Пингуем себя...")
-                requests.get(render_url)
+                requests.get(REPLIT_URL)
             except Exception as e:
                 print(f"Ошибка при пинге: {e}")
             time.sleep(300)  # каждые 5 минут
 
-    thread = threading.Thread(target=ping, daemon=True)
+    thread = threading.Thread(target=ping)
+    thread.daemon = True
     thread.start()
 
 # Работа с прогрессом
@@ -109,21 +110,13 @@ def button_handler(update: Update, context: CallbackContext):
     save_progress(progress)
 
 def main():
-    # Flask-сервер
-    threading.Thread(
-        target=app.run,
-        kwargs={
-            "host": "0.0.0.0",
-            "port": int(os.environ.get("PORT", 10000)),
-            "debug": False
-        },
-        daemon=True
-    ).start()
+    # Запускаем Flask-сервер в фоне
+    threading.Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": 8080}, daemon=True).start()
 
-    # Автопинг
+    # Запускаем авто-пинг
     keep_alive()
 
-    # Telegram-бот
+    # Запускаем Telegram-бота
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
 
